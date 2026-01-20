@@ -10,10 +10,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #313338; color: #dbdee1; margin: 0; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        body { background-color: #313338; color: #dbdee1; margin: 0; overflow: hidden; font-family: sans-serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #2b2d31; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e1f22; border-radius: 4px; }
+        .typing { font-style: italic; font-size: 12px; color: #b5bac1; padding: 4px 16px; }
     </style>
 </head>
 <body>
@@ -22,94 +23,96 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- CONFIGURATION ---
+        // --- CREDENTIALS ---
         const SB_URL = 'https://nrpiojdaltgfgswvhrys.supabase.co';
         const SB_KEY = 'sb_publishable_nu-if7EcpRJkKD9bXM97Rg__X3ELLW7';
-        const _supabase = supabase.createClient(SB_URL, SB_KEY);
         
-        // Change this to your secret code!
+        // Initialize Supabase correctly
+        const _supabase = supabase.createClient(SB_URL, SB_KEY);
         const ADMIN_PASSWORD = 'admin123'; 
 
         function App() {
             const [messages, setMessages] = useState([]);
             const [text, setText] = useState('');
             const [search, setSearch] = useState('');
+            const [typingUser, setTypingUser] = useState(null);
             const [user, setUser] = useState({ 
                 name: localStorage.getItem('chat_name') || '', 
-                pfp: localStorage.getItem('chat_pfp') || `https://api.dicebear.com/7.x/identicon/svg?seed=${Math.random()}` 
+                pfp: localStorage.getItem('chat_pfp') || `https://api.dicebear.com/7.x/identicon/svg?seed=${Math.floor(Math.random() * 1000)}` 
             });
             const [isJoined, setIsJoined] = useState(!!user.name);
             const scrollRef = useRef();
 
+            // Fetch and Realtime
             useEffect(() => {
                 if (!isJoined) return;
 
                 const fetchMsgs = async () => {
-                    const { data } = await _supabase.from('messages').select('*').order('created_at', { ascending: true });
-                    setMessages(data || []);
-                    // Trigger the 5-day auto-delete function
-                    await _supabase.rpc('delete_old_messages');
+                    const { data, error } = await _supabase.from('messages').select('*').order('created_at', { ascending: true });
+                    if (!error) setMessages(data || []);
                 };
 
                 fetchMsgs();
 
-                const channel = _supabase.channel('global-chat')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, payload => {
-                        if (payload.eventType === 'INSERT') {
-                            setMessages(prev => [...prev, payload.new]);
-                        } else if (payload.eventType === 'DELETE') {
-                            fetchMsgs(); // Refresh list if messages are cleared
-                        }
-                    })
-                    .subscribe();
+                // Listen for Messages AND Typing presence
+                const channel = _supabase.channel('global-chat', {
+                    config: { presence: { key: user.name } }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+                    fetchMsgs();
+                })
+                .on('presence', { event: 'sync' }, () => {
+                    const state = channel.presenceState();
+                    const typers = Object.values(state).flat().filter(p => p.isTyping && p.user !== user.name);
+                    setTypingUser(typers.length > 0 ? typers[0].user : null);
+                })
+                .subscribe();
 
                 return () => _supabase.removeChannel(channel);
             }, [isJoined]);
 
+            // Auto-scroll
             useEffect(() => {
                 scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, [messages]);
+            }, [messages, typingUser]);
 
-            const handleSendMessage = async (e) => {
+            const handleTyping = (val) => {
+                setText(val);
+                _supabase.channel('global-chat').track({ user: user.name, isTyping: val.length > 0 });
+            };
+
+            const sendMessage = async (e) => {
                 e.preventDefault();
                 if (!text.trim()) return;
-                await _supabase.from('messages').insert([{ 
+                const { error } = await _supabase.from('messages').insert([{ 
                     display_name: user.name, 
                     pfp_url: user.pfp, 
-                    content: text 
+                    content: text,
+                    reactions: {}
                 }]);
+                if(error) console.error(error);
                 setText('');
+                _supabase.channel('global-chat').track({ user: user.name, isTyping: false });
             };
 
-            const clearChat = async () => {
-                if(confirm("Are you sure you want to delete EVERY message?")) {
-                    const { error } = await _supabase.from('messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                    if (error) console.error(error);
-                }
+            const addReaction = async (msgId, emoji) => {
+                const msg = messages.find(m => m.id === msgId);
+                const reactions = msg.reactions || {};
+                reactions[emoji] = (reactions[emoji] || 0) + 1;
+                await _supabase.from('messages').update({ reactions }).eq('id', msgId);
             };
-
-            const filteredMessages = messages.filter(m => 
-                m.content.toLowerCase().includes(search.toLowerCase())
-            );
 
             if (!isJoined) {
                 return (
                     <div className="flex items-center justify-center h-screen bg-[#1e1f22]">
-                        <div className="bg-[#313338] p-8 rounded-lg shadow-xl w-96 border border-[#2b2d31]">
-                            <h1 className="text-2xl font-bold mb-6 text-white text-center">Identity Setup</h1>
-                            <label className="text-xs font-bold text-gray-400 uppercase">Display Name</label>
-                            <input className="w-full p-3 mt-1 mb-4 rounded bg-[#1e1f22] border-none text-white focus:outline-none" 
-                                placeholder="What should we call you?" 
-                                onChange={e => setUser({...user, name: e.target.value})} 
-                            />
-                            <label className="text-xs font-bold text-gray-400 uppercase">Profile Picture URL</label>
-                            <input className="w-full p-3 mt-1 mb-6 rounded bg-[#1e1f22] border-none text-white focus:outline-none" 
-                                placeholder="Link to an image (optional)" 
-                                onChange={e => setUser({...user, pfp: e.target.value || user.pfp})} 
-                            />
-                            <button className="w-full bg-[#5865f2] hover:bg-[#4752c4] text-white p-3 rounded font-medium transition"
-                                onClick={() => { if(user.name) { localStorage.setItem('chat_name', user.name); setIsJoined(true); } }}>
-                                Finish Setup
+                        <div className="bg-[#313338] p-8 rounded-lg w-96">
+                            <h2 className="text-white text-xl font-bold mb-4">Set Identity</h2>
+                            <input className="w-full p-2 mb-4 rounded bg-[#1e1f22] text-white outline-none" 
+                                placeholder="Display Name" 
+                                onChange={e => setUser({...user, name: e.target.value})} />
+                            <button className="w-full bg-[#5865f2] p-2 rounded text-white font-bold"
+                                onClick={() => { if(user.name) { localStorage.setItem('chat_name', user.name); setIsJoined(true); }}}>
+                                Join
                             </button>
                         </div>
                     </div>
@@ -119,74 +122,58 @@
             return (
                 <div className="flex h-screen">
                     {/* Sidebar */}
-                    <div className="w-60 bg-[#2b2d31] flex-shrink-0 flex flex-col">
-                        <div className="p-4 font-bold text-white border-b border-[#1e1f22] shadow-sm">Global Server</div>
-                        <div className="flex-1 p-2">
-                            <div className="bg-[#393c41] text-white p-2 rounded flex items-center mb-2">
-                                <span className="mr-2">#</span> global-chat
-                            </div>
-                        </div>
-                        {/* Admin Section */}
+                    <div className="w-64 bg-[#2b2d31] flex flex-col p-4">
+                        <div className="font-bold text-white mb-4"># global-chat</div>
+                        <div className="flex-1 text-sm text-gray-400">Welcome to the void.</div>
                         {search === ADMIN_PASSWORD && (
-                            <div className="p-4 bg-[#202225]">
-                                <button onClick={clearChat} className="w-full bg-red-500 hover:bg-red-600 text-white text-xs py-2 rounded transition font-bold">
-                                    CLEAR ALL MESSAGES
-                                </button>
-                            </div>
+                            <button onClick={async () => await _supabase.from('messages').delete().neq('id', '0')} className="bg-red-600 text-white p-1 rounded text-xs mb-2">CLEAR CHAT</button>
                         )}
-                        <div className="bg-[#232428] p-3 flex items-center">
-                            <img src={user.pfp} className="w-8 h-8 rounded-full mr-2 bg-gray-500" />
-                            <div className="text-sm truncate font-semibold text-white">{user.name}</div>
+                        <div className="flex items-center gap-2 border-t border-gray-700 pt-2">
+                            <img src={user.pfp} className="w-8 h-8 rounded-full bg-gray-600"/>
+                            <span className="text-white text-sm font-bold truncate">{user.name}</span>
                         </div>
                     </div>
 
-                    {/* Chat Area */}
+                    {/* Chat Section */}
                     <div className="flex-1 flex flex-col bg-[#313338]">
-                        <header className="h-12 border-b border-[#26272d] flex items-center px-4 justify-between shadow-md">
-                            <div className="flex items-center font-bold text-white">
-                                <span className="text-gray-400 text-2xl mr-2">#</span> global-chat
-                            </div>
-                            <div className="relative">
-                                <input 
-                                    className="bg-[#1e1f22] text-sm p-1 px-3 rounded w-64 focus:outline-none text-white border border-transparent focus:border-[#5865f2]" 
-                                    placeholder="Search or enter admin key..." 
-                                    value={search}
-                                    onChange={e => setSearch(e.target.value)}
-                                />
-                            </div>
+                        <header className="h-12 border-b border-[#26272d] flex items-center px-4 justify-between shadow-sm">
+                            <span className="font-bold text-white"># global-chat</span>
+                            <input className="bg-[#1e1f22] text-xs p-1 px-2 rounded w-48 text-white outline-none" 
+                                placeholder="Search..." onChange={e => setSearch(e.target.value)} />
                         </header>
 
                         <main className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                            {filteredMessages.length === 0 && search && (
-                                <div className="text-gray-500 text-center mt-10">No messages found matching "{search}"</div>
-                            )}
-                            {filteredMessages.map(msg => (
-                                <div key={msg.id} className="flex items-start mb-4 hover:bg-[#2e3035] -mx-4 px-4 py-1 transition-colors group">
-                                    <img src={msg.pfp_url} className="w-10 h-10 rounded-full mr-4 mt-1 bg-[#4f545c]" />
+                            {messages.filter(m => m.content.toLowerCase().includes(search.toLowerCase())).map(msg => (
+                                <div key={msg.id} className="flex gap-4 mb-4 hover:bg-[#2e3035] p-1 rounded group relative">
+                                    <img src={msg.pfp_url} className="w-10 h-10 rounded-full bg-gray-500 mt-1" />
                                     <div>
-                                        <div className="flex items-baseline">
-                                            <span className="text-[#f2f3f5] font-medium mr-2 hover:underline cursor-pointer">{msg.display_name}</span>
-                                            <span className="text-[10px] text-gray-400 uppercase">
-                                                {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                            </span>
+                                        <div className="flex gap-2 items-center">
+                                            <span className="text-white font-bold">{msg.display_name}</span>
+                                            <span className="text-[10px] text-gray-500 uppercase">{new Date(msg.created_at).toLocaleTimeString()}</span>
                                         </div>
-                                        <p className="text-[#dbdee1] whitespace-pre-wrap">{msg.content}</p>
+                                        <p className="text-[#dbdee1]">{msg.content}</p>
+                                        <div className="flex gap-1 mt-1">
+                                            {msg.reactions && Object.entries(msg.reactions).map(([emoji, count]) => (
+                                                <span key={emoji} onClick={() => addReaction(msg.id, emoji)} className="bg-[#2b2d31] px-1 rounded border border-[#1e1f22] text-xs cursor-pointer">{emoji} {count}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="hidden group-hover:flex absolute right-2 top-0 bg-[#313338] border border-black p-1 rounded gap-2">
+                                        {['🔥','😂','❤️'].map(e => <button key={e} onClick={() => addReaction(msg.id, e)}>{e}</button>)}
                                     </div>
                                 </div>
                             ))}
                             <div ref={scrollRef} />
                         </main>
 
-                        <footer className="px-4 pb-6">
-                            <form onSubmit={handleSendMessage} className="bg-[#383a40] rounded-lg flex items-center px-4">
-                                <input 
-                                    className="w-full bg-transparent py-3 text-[#dbdee1] focus:outline-none" 
-                                    placeholder={`Message #global-chat`} 
-                                    value={text}
-                                    onChange={e => setText(e.target.value)}
-                                />
-                            </form>
-                        </footer>
+                        {typingUser && <div className="typing">{typingUser} is typing...</div>}
+
+                        <form onSubmit={sendMessage} className="p-4">
+                            <input className="w-full bg-[#383a40] p-3 rounded-lg text-white outline-none" 
+                                placeholder="Message #global-chat" 
+                                value={text} 
+                                onChange={e => handleTyping(e.target.value)} />
+                        </form>
                     </div>
                 </div>
             );
