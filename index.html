@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroBooru | Frutiger Aero Forum</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <nav class="aero-nav">
+        <div class="logo">
+            <div class="orb"></div>
+            <h1>AERO<span>BOORU</span></h1>
+        </div>
+        <div class="search-container">
+            <input type="text" id="tagSearch" placeholder="Search tags (e.g. water, glass, nature)...">
+            <button id="searchBtn" class="glossy-btn">Search</button>
+        </div>
+        <div class="user-controls">
+            <span id="displayUsername">Guest</span>
+            <button id="loginBtn" class="glossy-btn">Profile</button>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <aside class="sidebar aero-glass">
+            <section>
+                <h3>Navigation</h3>
+                <ul>
+                    <li><a href="#" onclick="showPage('posts')">All Posts</a></li>
+                    <li><a href="#" onclick="showPage('upload')">Upload File</a></li>
+                    <li><a href="#" onclick="showPage('chat')">Live Chat</a></li>
+                </ul>
+            </section>
+
+            <section>
+                <h3>Top Tags</h3>
+                <div id="tagCloud" class="tag-cloud">
+                    </div>
+            </section>
+
+            <section class="stats">
+                <h3>Statistics</h3>
+                <p>Nodes: <span id="postCount">0</span></p>
+                <p>Users: <span id="userCount">0</span></p>
+            </section>
+        </aside>
+
+        <main id="contentArea" class="content">
+            <div id="postsPage" class="view">
+                <div id="imageGrid" class="grid-container">
+                    </div>
+            </div>
+
+            <div id="uploadPage" class="view hidden">
+                <div class="aero-glass upload-form">
+                    <h2>Terminal Upload</h2>
+                    <input type="file" id="fileInput" accept="image/*,video/*">
+                    <input type="text" id="tagInput" placeholder="Tags (space separated)">
+                    <button id="submitPost" class="glossy-btn big">Transmit Data</button>
+                </div>
+            </div>
+
+            <div id="chatPage" class="view hidden">
+                <div class="aero-glass chat-window">
+                    <div id="chatMessages" class="chat-log"></div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chatInput" placeholder="Send a message...">
+                        <button id="sendChat" class="glossy-btn">Send</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="authModal" class="modal hidden">
+        <div class="aero-glass modal-content">
+            <h2>Identify Yourself</h2>
+            <p>Pick a unique name for the network.</p>
+            <input type="text" id="newUsername" placeholder="Username...">
+            <button id="saveProfile" class="glossy-btn">Enter Network</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
