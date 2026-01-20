@@ -22,11 +22,12 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const SB_URL = 'https://nrpiojdaltgfgswvhrys.supabase.co';
-        const SB_KEY = 'sb_publishable_nu-if7EcpRJkKD9bXM97Rg__X3ELLW7';
+        // --- NEW CREDENTIALS ---
+        const SB_URL = 'https://gzwjqzyedpxlhgwknndl.supabase.co';
+        const SB_KEY = 'sb_publishable_r4jrV0e282f2TNc1QExFOQ_XuFxdHsC';
         
         const _supabase = supabase.createClient(SB_URL, SB_KEY, {
-            auth: { persistSession: false } // Bypasses browser tracking blocks
+            auth: { persistSession: false, storage: null }
         });
 
         function App() {
@@ -34,16 +35,14 @@
             const [text, setText] = useState('');
             const [user, setUser] = useState({ 
                 name: localStorage.getItem('chat_name') || '', 
-                pfp: localStorage.getItem('chat_pfp') || `https://api.dicebear.com/7.x/bottts/svg?seed=${Math.random()}` 
+                pfp: localStorage.getItem('chat_pfp') || `https://api.dicebear.com/7.x/identicon/svg?seed=${Math.random()}` 
             });
             const [isJoined, setIsJoined] = useState(!!user.name);
             const scrollRef = useRef();
 
             const fetchMsgs = async () => {
-                try {
-                    const { data, error } = await _supabase.from('messages').select('*').order('created_at', { ascending: true });
-                    if (!error) setMessages(data || []);
-                } catch (e) { console.error("Database connection issue."); }
+                const { data, error } = await _supabase.from('messages').select('*').order('created_at', { ascending: true });
+                if (!error) setMessages(data || []);
             };
 
             useEffect(() => {
@@ -57,20 +56,20 @@
 
             const sendMessage = async (e) => {
                 e.preventDefault();
-                const cleanText = text.trim();
-                if (!cleanText) return;
-
-                setText(''); // Clear UI immediately for speed
+                if (!text.trim()) return;
+                
+                const temp = text;
+                setText(''); 
 
                 const { error } = await _supabase.from('messages').insert([{ 
                     display_name: user.name, 
                     pfp_url: user.pfp, 
-                    content: cleanText 
+                    content: temp 
                 }]);
 
                 if (error) {
-                    alert("Send Failed: " + error.message);
-                    setText(cleanText); // Restore text if failed
+                    alert("Database Error: " + error.message);
+                    setText(temp); 
                 }
             };
 
@@ -82,13 +81,13 @@
             if (!isJoined) {
                 return (
                     <div className="flex items-center justify-center h-screen bg-[#1e1f22]">
-                        <div className="bg-[#313338] p-8 rounded shadow-xl w-80 text-center">
-                            <h2 className="text-white font-bold mb-4">Chat Identity</h2>
-                            <input className="w-full p-2 bg-[#1e1f22] text-white rounded mb-4 outline-none" 
+                        <div className="bg-[#313338] p-8 rounded-lg w-80 text-center border border-[#2b2d31]">
+                            <h2 className="text-white font-bold mb-4 text-xl">Global Chat</h2>
+                            <input className="w-full p-2 mb-4 rounded bg-[#1e1f22] text-white outline-none" 
                                 placeholder="Display Name" onChange={e => setUser({...user, name: e.target.value})} />
                             <button className="w-full bg-[#5865f2] p-2 rounded text-white font-bold"
                                 onClick={() => { if(user.name) { localStorage.setItem('chat_name', user.name); setIsJoined(true); } }}>
-                                Join Chat
+                                Join
                             </button>
                         </div>
                     </div>
@@ -102,27 +101,27 @@
                         <div className="flex-1"></div>
                         <div className="mt-auto border-t border-gray-700 pt-4">
                             <div className="flex items-center gap-3 mb-4">
-                                <img src={user.pfp} className="w-10 h-10 rounded-full cursor-pointer bg-gray-600 hover:opacity-80" 
+                                <img src={user.pfp} className="w-10 h-10 rounded-full cursor-pointer bg-gray-600" 
                                     onClick={() => {
-                                        const url = prompt("Paste Image URL:", user.pfp);
+                                        const url = prompt("PFP Image URL:", user.pfp);
                                         if(url) { setUser({...user, pfp: url}); localStorage.setItem('chat_pfp', url); }
                                     }} />
-                                <span className="text-white font-bold truncate">{user.name}</span>
+                                <span className="text-white font-bold truncate text-sm">{user.name}</span>
                             </div>
-                            <button onClick={logout} className="w-full py-1 bg-[#4e5058] hover:bg-red-600 text-white rounded text-xs font-bold">LOGOUT</button>
+                            <button onClick={logout} className="w-full py-1 bg-[#4e5058] hover:bg-red-600 text-white rounded text-xs font-bold transition">LOGOUT</button>
                         </div>
                     </div>
-                    <div className="flex-1 flex flex-col">
+                    <div className="flex-1 flex flex-col bg-[#313338]">
                         <main className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                             {messages.map(msg => (
                                 <div key={msg.id} className="flex gap-4 mb-4">
-                                    <img src={msg.pfp_url} className="w-10 h-10 rounded-full bg-gray-500" />
+                                    <img src={msg.pfp_url} className="w-10 h-10 rounded-full bg-gray-500 mt-1" />
                                     <div>
                                         <div className="flex gap-2 items-center">
-                                            <span className="text-white font-bold">{msg.display_name || 'Anonymous'}</span>
+                                            <span className="text-white font-bold">{msg.display_name}</span>
                                             <span className="text-[10px] text-gray-500">{new Date(msg.created_at).toLocaleTimeString()}</span>
                                         </div>
-                                        <p>{msg.content}</p>
+                                        <p className="text-[#dbdee1]">{msg.content}</p>
                                     </div>
                                 </div>
                             ))}
