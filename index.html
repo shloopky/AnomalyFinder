@@ -3,141 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Chat</title>
+    <title>FORVM ROMANVM</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { background-color: #313338; color: #dbdee1; margin: 0; overflow: hidden; font-family: sans-serif; }
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #2b2d31; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e1f22; border-radius: 4px; }
+        body { background: linear-gradient(to bottom right, #a78bfa, #f9a8d4, #93c5fd); min-height: 100vh; }
+        .glass { background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5); }
+        .roman-column { width: 80px; height: 200px; background: linear-gradient(to top, rgba(255,255,255,0.4), transparent); border-left: 4px solid rgba(255,255,255,0.6); border-right: 4px solid rgba(255,255,255,0.6); }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        // --- NEW CREDENTIALS ---
-        const SB_URL = 'https://gzwjqzyedpxlhgwknndl.supabase.co';
-        const SB_KEY = 'sb_publishable_r4jrV0e282f2TNc1QExFOQ_XuFxdHsC';
-        
-        const _supabase = supabase.createClient(SB_URL, SB_KEY, {
-            auth: { persistSession: false, storage: null }
-        });
-
-        function App() {
-            const [messages, setMessages] = useState([]);
-            const [text, setText] = useState('');
-            const [user, setUser] = useState({ 
-                name: localStorage.getItem('chat_name') || '', 
-                pfp: localStorage.getItem('chat_pfp') || `https://api.dicebear.com/7.x/identicon/svg?seed=${Math.random()}` 
-            });
-            const [isJoined, setIsJoined] = useState(!!user.name);
-            const scrollRef = useRef();
-
-            const fetchMsgs = async () => {
-                const { data, error } = await _supabase.from('messages').select('*').order('created_at', { ascending: true });
-                if (!error) setMessages(data || []);
-            };
-
-            useEffect(() => {
-                if (!isJoined) return;
-                fetchMsgs();
-                const channel = _supabase.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, fetchMsgs).subscribe();
-                return () => _supabase.removeChannel(channel);
-            }, [isJoined]);
-
-            useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-            const sendMessage = async (e) => {
-                e.preventDefault();
-                if (!text.trim()) return;
-                
-                const temp = text;
-                setText(''); 
-
-                const { error } = await _supabase.from('messages').insert([{ 
-                    display_name: user.name, 
-                    pfp_url: user.pfp, 
-                    content: temp 
-                }]);
-
-                if (error) {
-                    alert("Database Error: " + error.message);
-                    setText(temp); 
-                }
-            };
-
-            const logout = () => {
-                localStorage.clear();
-                window.location.reload();
-            };
-
-            if (!isJoined) {
-                return (
-                    <div className="flex items-center justify-center h-screen bg-[#1e1f22]">
-                        <div className="bg-[#313338] p-8 rounded-lg w-80 text-center border border-[#2b2d31]">
-                            <h2 className="text-white font-bold mb-4 text-xl">Global Chat</h2>
-                            <input className="w-full p-2 mb-4 rounded bg-[#1e1f22] text-white outline-none" 
-                                placeholder="Display Name" onChange={e => setUser({...user, name: e.target.value})} />
-                            <button className="w-full bg-[#5865f2] p-2 rounded text-white font-bold"
-                                onClick={() => { if(user.name) { localStorage.setItem('chat_name', user.name); setIsJoined(true); } }}>
-                                Join
-                            </button>
-                        </div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="flex h-screen">
-                    <div className="w-64 bg-[#2b2d31] flex flex-col p-4 border-r border-[#1e1f22]">
-                        <div className="font-bold text-white mb-4"># global-chat</div>
-                        <div className="flex-1"></div>
-                        <div className="mt-auto border-t border-gray-700 pt-4">
-                            <div className="flex items-center gap-3 mb-4">
-                                <img src={user.pfp} className="w-10 h-10 rounded-full cursor-pointer bg-gray-600" 
-                                    onClick={() => {
-                                        const url = prompt("PFP Image URL:", user.pfp);
-                                        if(url) { setUser({...user, pfp: url}); localStorage.setItem('chat_pfp', url); }
-                                    }} />
-                                <span className="text-white font-bold truncate text-sm">{user.name}</span>
-                            </div>
-                            <button onClick={logout} className="w-full py-1 bg-[#4e5058] hover:bg-red-600 text-white rounded text-xs font-bold transition">LOGOUT</button>
-                        </div>
-                    </div>
-                    <div className="flex-1 flex flex-col bg-[#313338]">
-                        <main className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                            {messages.map(msg => (
-                                <div key={msg.id} className="flex gap-4 mb-4">
-                                    <img src={msg.pfp_url} className="w-10 h-10 rounded-full bg-gray-500 mt-1" />
-                                    <div>
-                                        <div className="flex gap-2 items-center">
-                                            <span className="text-white font-bold">{msg.display_name}</span>
-                                            <span className="text-[10px] text-gray-500">{new Date(msg.created_at).toLocaleTimeString()}</span>
-                                        </div>
-                                        <p className="text-[#dbdee1]">{msg.content}</p>
-                                    </div>
-                                </div>
-                            ))}
-                            <div ref={scrollRef} />
-                        </main>
-                        <form onSubmit={sendMessage} className="p-4">
-                            <input className="w-full bg-[#383a40] p-3 rounded-lg text-white outline-none" 
-                                placeholder="Message #global-chat" value={text} onChange={e => setText(e.target.value)} />
-                        </form>
-                    </div>
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+    <script type="text/babel" src="app.js"></script>
 </body>
 </html>
