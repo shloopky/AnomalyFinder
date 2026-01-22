@@ -19,7 +19,6 @@
             position: relative;
         }
 
-        /* CRT Effect */
         body::before {
             content: "";
             position: fixed;
@@ -92,14 +91,6 @@
             position: relative;
             overflow: hidden;
             box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
-        }
-
-        .machine-photo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            filter: contrast(1.2) brightness(0.7) grayscale(0.3);
-            opacity: 0.85;
         }
 
         .warning-tape {
@@ -332,7 +323,6 @@
         <div class="machine-photo">
             <div class="warning-tape"></div>
             <svg width="100%" height="100%" style="position: absolute; top: 0; left: 0;">
-                <!-- Simulated vintage computer/machine imagery -->
                 <rect width="100%" height="100%" fill="#1a1a1a"/>
                 <circle cx="200" cy="200" r="80" fill="#333" opacity="0.5"/>
                 <circle cx="200" cy="200" r="60" fill="#222" opacity="0.7"/>
@@ -386,11 +376,11 @@
 
         let isDragging = false;
 
-        knob.addEventListener('mousedown', (e) => {
+        knob.addEventListener('mousedown', function(e) {
             isDragging = true;
         });
 
-        document.addEventListener('mousemove', (e) => {
+        document.addEventListener('mousemove', function(e) {
             if (isDragging) {
                 const rect = knob.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
@@ -402,16 +392,16 @@
                 dangerLevel = Math.floor((degrees / 360) * 5);
                 if (dangerLevel > 4) dangerLevel = 4;
                 
-                indicator.style.transform = `translateX(-50%) rotate(${(dangerLevel / 4) * 270 - 135}deg)`;
+                indicator.style.transform = 'translateX(-50%) rotate(' + ((dangerLevel / 4) * 270 - 135) + 'deg)';
                 dangerLabel.textContent = labels[dangerLevel];
             }
         });
 
-        document.addEventListener('mouseup', () => {
+        document.addEventListener('mouseup', function() {
             isDragging = false;
         });
 
-        analyzeBtn.addEventListener('click', async () => {
+        analyzeBtn.addEventListener('click', async function() {
             const url = urlInput.value.trim();
             if (!url) {
                 alert('ERROR: NO URL PROVIDED');
@@ -433,34 +423,24 @@
                         max_tokens: 1000,
                         messages: [{
                             role: "user",
-                            content: `Given this URL: "${url}", suggest 3 similar websites or online experiences.
-                            
-Danger level: ${dangerLevel}/4 (0=safe/mainstream, 4=edgy/experimental/dark)
-
-Respond ONLY with valid JSON, no other text:
-{
-  "sites": [
-    {"name": "Site Name", "url": "https://example.com", "description": "Why it's similar"},
-    {"name": "Site Name", "url": "https://example.com", "description": "Why it's similar"},
-    {"name": "Site Name", "url": "https://example.com", "description": "Why it's similar"}
-  ],
-  "classification": "Brief category",
-  "warning": "Any warnings or notes"
-}
-
-Higher danger levels should yield more unconventional, edgy, or experimental suggestions.`
+                            content: "Given this URL: \"" + url + "\", suggest 3 similar websites or online experiences. Danger level: " + dangerLevel + "/4 (0=safe/mainstream, 4=edgy/experimental/dark). Respond ONLY with valid JSON in this exact format with no markdown formatting: {\"sites\": [{\"name\": \"Site Name\", \"url\": \"https://example.com\", \"description\": \"Why similar\"}, {\"name\": \"Site Name\", \"url\": \"https://example.com\", \"description\": \"Why similar\"}, {\"name\": \"Site Name\", \"url\": \"https://example.com\", \"description\": \"Why similar\"}], \"classification\": \"Brief category\", \"warning\": \"Any warnings\"}"
                         }]
                     })
                 });
 
                 const data = await response.json();
-                const text = data.content.map(i => i.text || "").join("\n").trim();
-                const clean = text.replace(/```json|```/g, "").trim();
-                const parsed = JSON.parse(clean);
-
-                displayResults(parsed);
+                
+                if (data.content && data.content.length > 0) {
+                    const text = data.content.map(function(i) { return i.text || ""; }).join("\n").trim();
+                    const clean = text.replace(/```json|```/g, "").trim();
+                    const parsed = JSON.parse(clean);
+                    displayResults(parsed);
+                } else {
+                    throw new Error('No content in response');
+                }
             } catch (err) {
-                results.innerHTML = '<div class="result-item"><h3>ERROR</h3><p>Analysis failed. Check URL format.</p></div>';
+                console.error('Error:', err);
+                results.innerHTML = '<div class="result-item"><h3>ERROR</h3><p>Analysis failed</p></div>';
             }
 
             analyzeBtn.textContent = 'INITIATE SCAN';
@@ -468,31 +448,22 @@ Higher danger levels should yield more unconventional, edgy, or experimental sug
         });
 
         function displayResults(data) {
-            let html = `
-                <div class="panel">
-                    <div style="margin-bottom: 20px;">
-                        <div style="font-size: 12px; color: #888;">CLASSIFICATION:</div>
-                        <div style="font-size: 18px; color: #00ff00; text-shadow: 0 0 10px #00ff00;">${data.classification}</div>
-                    </div>
-                    ${data.warning ? `<div style="border: 1px solid #ff0000; padding: 10px; margin-bottom: 20px; color: #ff0000;">⚠ ${data.warning}</div>` : ''}
-                </div>
-            `;
+            let html = '<div class="panel"><div style="margin-bottom: 20px;"><div style="font-size: 12px; color: #888;">CLASSIFICATION:</div><div style="font-size: 18px; color: #00ff00; text-shadow: 0 0 10px #00ff00;">' + data.classification + '</div></div>';
+            
+            if (data.warning) {
+                html += '<div style="border: 1px solid #ff0000; padding: 10px; margin-bottom: 20px; color: #ff0000;">⚠ ' + data.warning + '</div>';
+            }
+            
+            html += '</div>';
 
-            data.sites.forEach((site, i) => {
-                html += `
-                    <div class="result-item">
-                        <h3>ANOMALY ${i + 1}: ${site.name}</h3>
-                        <a href="${site.url}" target="_blank">${site.url}</a>
-                        <p>${site.description}</p>
-                    </div>
-                `;
+            data.sites.forEach(function(site, i) {
+                html += '<div class="result-item"><h3>ANOMALY ' + (i + 1) + ': ' + site.name + '</h3><a href="' + site.url + '" target="_blank">' + site.url + '</a><p>' + site.description + '</p></div>';
             });
 
             results.innerHTML = html;
         }
 
-        // Set initial knob position
-        indicator.style.transform = `translateX(-50%) rotate(${(dangerLevel / 4) * 270 - 135}deg)`;
+        indicator.style.transform = 'translateX(-50%) rotate(' + ((dangerLevel / 4) * 270 - 135) + 'deg)';
     </script>
 </body>
 </html>
