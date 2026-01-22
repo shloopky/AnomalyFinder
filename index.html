@@ -1,320 +1,288 @@
-import React, { useState } from 'react';
-import { Zap } from 'lucide-react';
-
-export default function AnomalyDetector() {
-  const [url, setUrl] = useState('');
-  const [danger, setDanger] = useState(2);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState(null);
-  const [scanLines, setScanLines] = useState(false);
-
-  const dangerLevels = [
-    { label: 'LEVEL 0', color: 'text-green-400', desc: 'Safe - Mainstream results' },
-    { label: 'LEVEL 1', color: 'text-yellow-400', desc: 'Caution - Slightly unusual' },
-    { label: 'LEVEL 2', color: 'text-orange-400', desc: 'Moderate - Getting weird' },
-    { label: 'LEVEL 3', color: 'text-red-400', desc: 'Elevated - Very edgy' },
-    { label: 'LEVEL 4', color: 'text-red-600', desc: 'Critical - Maximum chaos' }
-  ];
-
-  const analyzeSite = async () => {
-    if (!url) return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANOMALY DETECTION SYSTEM</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- CRT Scanlines -->
+    <div class="crt-overlay"></div>
     
-    let processUrl = url;
-    if (!processUrl.startsWith('http://') && !processUrl.startsWith('https://')) {
-      processUrl = 'https://' + processUrl;
-    }
-    
-    setAnalyzing(true);
-    setScanLines(true);
-    setResult(null);
+    <!-- Vignette -->
+    <div class="vignette"></div>
 
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [
-            { 
-              role: "user", 
-              content: `Given this URL: "${processUrl}", suggest 3 similar websites or links. 
-              
-Danger level: ${danger}/4 (0=safe/wholesome, 4=edgy/chaotic)
-
-Respond ONLY with valid JSON, no other text:
-{
-  "sites": [
-    {"name": "Site Name", "url": "https://example.com", "reason": "Why it's similar"},
-    {"name": "Site Name", "url": "https://example.com", "reason": "Why it's similar"},
-    {"name": "Site Name", "url": "https://example.com", "reason": "Why it's similar"}
-  ],
-  "classification": "SHORT_DESCRIPTION",
-  "warning": "ANY_WARNINGS_OR_NOTES"
-}
-
-Adjust your suggestions based on danger level - higher levels should be more unconventional, edgy, or chaotic.`
-            }
-          ]
-        })
-      });
-
-      const data = await response.json();
-      const text = data.content.map(i => i.text || "").join("\n").trim();
-      const clean = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
-      
-      setTimeout(() => {
-        setResult(parsed);
-        setAnalyzing(false);
-        setScanLines(false);
-      }, 1500);
-    } catch (err) {
-      console.error(err);
-      setResult({ 
-        sites: [], 
-        classification: "ERROR",
-        warning: "Analysis failed. Check URL format." 
-      });
-      setAnalyzing(false);
-      setScanLines(false);
-    }
-  };
-
-  const currentDanger = dangerLevels[danger];
-
-  return (
-    <div className="min-h-screen bg-black text-green-400 p-8 font-mono relative overflow-hidden">
-      {/* CRT Scanlines */}
-      <div className="fixed inset-0 pointer-events-none z-50" style={{
-        background: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px)',
-        animation: 'flicker 0.15s infinite'
-      }}></div>
-      
-      {/* Vignette */}
-      <div className="fixed inset-0 pointer-events-none z-40" style={{
-        background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)'
-      }}></div>
-
-      {/* Active Scan Lines */}
-      {scanLines && (
-        <div className="fixed inset-0 pointer-events-none z-30">
-          <div className="absolute w-full h-5 bg-gradient-to-b from-transparent via-green-500/20 to-transparent animate-scan"></div>
-        </div>
-      )}
-
-      {/* Static Noise */}
-      <div className="fixed inset-0 pointer-events-none opacity-5 z-20" style={{
-        backgroundImage: 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAADElEQVQImWNgoBMAAABpAAFEI8ARAAAAAElFTkSuQmCC")',
-        animation: 'static 0.1s infinite'
-      }}></div>
-
-      <div className="max-w-4xl mx-auto relative z-10">
-        {/* Machine Photo Header */}
-        <div className="mb-8 border-2 border-gray-700 relative overflow-hidden" style={{ height: '350px' }}>
-          <svg width="100%" height="100%" className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)' }}>
-            {/* Machine illustration */}
-            <rect width="100%" height="100%" fill="#0a0a0a"/>
-            <circle cx="30%" cy="50%" r="80" fill="#1a1a1a" stroke="#333" strokeWidth="3"/>
-            <circle cx="30%" cy="50%" r="60" fill="#0d0d0d"/>
-            <circle cx="30%" cy="50%" r="15" fill="#ff0000" className="animate-pulse"/>
-            
-            {/* Control panel */}
-            <rect x="50%" y="35%" width="200" height="120" fill="#1a1a1a" stroke="#333" strokeWidth="2"/>
-            <rect x="52%" y="40%" width="30" height="50" fill="#0a0a0a" stroke="#00ff00" strokeWidth="1"/>
-            <rect x="58%" y="40%" width="30" height="50" fill="#0a0a0a" stroke="#00ff00" strokeWidth="1"/>
-            <rect x="64%" y="40%" width="30" height="50" fill="#0a0a0a" stroke="#00ff00" strokeWidth="1"/>
-            
-            {/* Warning tape */}
-            <rect x="0" y="10%" width="100%" height="30" fill="repeating-linear-gradient(45deg, #ffcc00, #ffcc00 20px, #000 20px, #000 40px)" opacity="0.6"/>
-            
-            <text x="50%" y="92%" textAnchor="middle" fill="#666" fontSize="11" fontFamily="monospace">
-              APPARATUS MODEL: ADS-7743 • CLEARANCE REQUIRED
-            </text>
-          </svg>
-        </div>
-
-        {/* Warning Banner */}
-        <div className="text-center text-red-500 text-xs tracking-widest mb-6 animate-pulse">
-          ⚠ UNAUTHORIZED ACCESS DETECTED ⚠
-        </div>
-
-        {/* Title */}
-        <h1 className="text-center text-4xl font-bold mb-2 tracking-wider" style={{ textShadow: '0 0 20px #00ff00' }}>
-          ANOMALY DETECTION SYSTEM
-        </h1>
-        <div className="text-center text-xs text-gray-600 mb-8">
-          CLEARANCE LEVEL: RESTRICTED
-        </div>
-
-        {/* Main Panel */}
-        <div className="border-2 border-green-700 bg-black/90 p-8 shadow-2xl" style={{ boxShadow: '0 0 30px rgba(0,255,0,0.3), inset 0 0 20px rgba(0,0,0,0.5)' }}>
-          <div className="mb-6">
-            <label className="block text-sm font-bold mb-2 text-green-400">
-              ◈ INPUT TARGET URL
-            </label>
-            <input
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-              className="w-full bg-black border-2 border-green-700 text-green-400 px-4 py-3 focus:outline-none focus:border-green-500 font-mono"
-              style={{ boxShadow: 'inset 0 0 10px rgba(0,255,0,0.2)' }}
-              onKeyPress={(e) => e.key === 'Enter' && analyzeSite()}
-            />
-          </div>
-
-          {/* Knob Control */}
-          <div className="mb-8 p-6 border border-gray-800 bg-black/50">
-            <div className="flex items-center justify-between mb-4">
-              <label className="text-sm font-bold text-yellow-400 flex items-center gap-2">
-                <Zap size={18} />
-                ◈ DANGER THRESHOLD
-              </label>
-              <span className={`text-xl font-bold ${currentDanger.color}`} style={{ textShadow: `0 0 10px currentColor` }}>
-                {currentDanger.label}
-              </span>
-            </div>
-            
-            {/* Visual Knob */}
-            <div className="flex justify-center mb-4">
-              <div className="relative w-32 h-32 rounded-full border-4 border-gray-900 bg-gradient-radial from-gray-700 to-gray-950" style={{ boxShadow: '0 10px 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5)' }}>
-                <div 
-                  className="absolute w-1 h-12 bg-red-600 top-2 left-1/2 origin-bottom"
-                  style={{ 
-                    transform: `translateX(-50%) rotate(${(danger / 4) * 270 - 135}deg)`,
-                    boxShadow: '0 0 10px #ff0000',
-                    transformOrigin: 'bottom center'
-                  }}
-                />
-              </div>
-            </div>
-            
-            <input
-              type="range"
-              min="0"
-              max="4"
-              value={danger}
-              onChange={(e) => setDanger(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-800 appearance-none cursor-pointer rounded"
-            />
-            
-            <div className="flex justify-between mt-2 text-xs text-gray-600">
-              <span>0</span>
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-            </div>
-            
-            <div className="mt-3 text-sm text-gray-400 italic text-center">
-              {currentDanger.desc}
-            </div>
-          </div>
-
-          {/* Scan Button */}
-          <button
-            onClick={analyzeSite}
-            disabled={analyzing || !url}
-            className={`w-full py-4 font-bold text-xl tracking-widest transition-all border-2 ${
-              analyzing 
-                ? 'bg-red-900 text-red-200 border-red-700 animate-pulse' 
-                : 'bg-green-900 text-green-300 border-green-700 hover:bg-green-800'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            style={{ boxShadow: analyzing ? '0 0 40px rgba(255,0,0,0.8)' : '0 0 20px rgba(0,255,0,0.3)' }}
-          >
-            {analyzing ? '◈ ANALYZING ◈' : 'INITIATE SCAN'}
-          </button>
-        </div>
-
-        {/* Results */}
-        {result && (
-          <div className="mt-8 border-2 border-green-700 bg-black/90 p-6 shadow-2xl" style={{ boxShadow: '0 0 15px rgba(0,255,0,0.2)' }}>
-            <div className="mb-4 pb-4 border-b border-gray-800">
-              <div className="text-xs text-gray-500 mb-1">CLASSIFICATION:</div>
-              <div className="text-green-400 font-bold text-lg" style={{ textShadow: '0 0 10px #00ff00' }}>
-                {result.classification}
-              </div>
-            </div>
-
-            {result.warning && (
-              <div className="mb-6 p-4 bg-red-900/20 border border-red-700">
-                <div className="text-xs text-red-400 mb-1">⚠ WARNING:</div>
-                <div className="text-red-300 text-sm">{result.warning}</div>
-              </div>
-            )}
-
-            <div className="text-xs text-gray-500 mb-3">ANOMALIES DETECTED:</div>
-            <div className="space-y-4">
-              {result.sites.map((site, i) => (
-                <div key={i} className="border border-gray-800 bg-black/50 p-4 hover:border-green-700 transition-colors">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="text-green-400 font-bold">ANOMALY {i + 1}</div>
-                    <div className="text-xs text-gray-600">[{i + 1}/3]</div>
-                  </div>
-                  <div className="text-white mb-2 font-semibold">{site.name}</div>
-                  <a 
-                    href={site.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 text-sm break-all underline"
-                  >
-                    {site.url}
-                  </a>
-                  <div className="mt-2 text-sm text-gray-400 italic">
-                    {site.reason}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="mt-8 text-center text-xs text-gray-700">
-          <p>WARNING: Unauthorized use of this apparatus is strictly prohibited</p>
-          <p className="mt-1">Security Clearance Required • Document #ADS-7743-R</p>
-        </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes flicker {
-          0% { opacity: 0.97; }
-          50% { opacity: 0.99; }
-          100% { opacity: 0.98; }
-        }
-        @keyframes scan {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(100vh); }
-        }
-        @keyframes static {
-          0% { transform: translate(0, 0); }
-          10% { transform: translate(-5px, -5px); }
-          20% { transform: translate(-10px, 5px); }
-          30% { transform: translate(5px, -10px); }
-          40% { transform: translate(-5px, 15px); }
-          50% { transform: translate(-10px, 5px); }
-          60% { transform: translate(15px, 0); }
-          70% { transform: translate(0, 10px); }
-          80% { transform: translate(-15px, 0); }
-          90% { transform: translate(10px, 5px); }
-          100% { transform: translate(5px, 0); }
-        }
-        .animate-scan {
-          animation: scan 8s linear infinite;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #ff0000, #ff6600);
-          cursor: pointer;
-          box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-        }
-      `}</style>
+    <!-- Active Scan Lines -->
+    <div id="scanLines" class="scan-lines hidden">
+        <div class="scan-bar"></div>
     </div>
-  );
+
+    <!-- Static Noise -->
+    <div class="static-noise"></div>
+
+    <div class="container">
+        <!-- Machine Photo Header -->
+        <div class="machine-header">
+            <svg width="100%" height="100%">
+                <rect width="100%" height="100%" fill="#0a0a0a"/>
+                <circle cx="30%" cy="50%" r="80" fill="#1a1a1a" stroke="#333" stroke-width="3"/>
+                <circle cx="30%" cy="50%" r="60" fill="#0d0d0d"/>
+                <circle cx="30%" cy="50%" r="15" fill="#ff0000" class="pulse"/>
+                
+                <rect x="50%" y="35%" width="200" height="120" fill="#1a1a1a" stroke="#333" stroke-width="2"/>
+                <rect x="52%" y="40%" width="30" height="50" fill="#0a0a0a" stroke="#00ff00" stroke-width="1"/>
+                <rect x="58%" y="40%" width="30" height="50" fill="#0a0a0a" stroke="#00ff00" stroke-width="1"/>
+                <rect x="64%" y="40%" width="30" height="50" fill="#0a0a0a" stroke="#00ff00" stroke-width="1"/>
+                
+                <rect x="0" y="10%" width="100%" height="30" fill="url(#warning-pattern)" opacity="0.6"/>
+                
+                <text x="50%" y="92%" text-anchor="middle" fill="#666" font-size="11" font-family="monospace">
+                    APPARATUS MODEL: ADS-7743 • CLEARANCE REQUIRED
+                </text>
+                
+                <defs>
+                    <pattern id="warning-pattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                        <rect x="0" y="0" width="20" height="40" fill="#ffcc00"/>
+                        <rect x="20" y="0" width="20" height="40" fill="#000"/>
+                    </pattern>
+                </defs>
+            </svg>
+        </div>
+
+        <!-- Warning Banner -->
+        <div class="warning-banner">
+            ⚠ UNAUTHORIZED ACCESS DETECTED ⚠
+        </div>
+
+        <!-- Title -->
+        <h1 class="title">ANOMALY DETECTION SYSTEM</h1>
+        <div class="subtitle">CLEARANCE LEVEL: RESTRICTED</div>
+
+        <!-- Main Panel -->
+        <div class="main-panel">
+            <div class="input-section">
+                <label class="input-label">◈ INPUT TARGET URL</label>
+                <input
+                    type="text"
+                    id="urlInput"
+                    placeholder="https://example.com"
+                    class="url-input"
+                />
+            </div>
+
+            <!-- Knob Control -->
+            <div class="knob-section">
+                <div class="knob-header">
+                    <label class="knob-label">
+                        <span class="zap-icon">⚡</span>
+                        ◈ DANGER THRESHOLD
+                    </label>
+                    <span id="dangerLevel" class="danger-level">LEVEL 2</span>
+                </div>
+                
+                <!-- Visual Knob -->
+                <div class="knob-wrapper">
+                    <div class="knob">
+                        <div id="knobIndicator" class="knob-indicator"></div>
+                    </div>
+                </div>
+                
+                <input
+                    type="range"
+                    id="dangerSlider"
+                    min="0"
+                    max="4"
+                    value="2"
+                    class="danger-slider"
+                />
+                
+                <div class="slider-labels">
+                    <span>0</span>
+                    <span>1</span>
+                    <span>2</span>
+                    <span>3</span>
+                    <span>4</span>
+                </div>
+                
+                <div id="dangerDesc" class="danger-desc">
+                    Moderate - Getting weird
+                </div>
+            </div>
+
+            <!-- Scan Button -->
+            <button id="scanBtn" class="scan-button">
+                INITIATE SCAN
+            </button>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="results hidden"></div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>WARNING: Unauthorized use of this apparatus is strictly prohibited</p>
+            <p>Security Clearance Required • Document #ADS-7743-R</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
+<!-- CSS (save as style.css) -->
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
+
+body {
+    font-family: 'Courier New', monospace;
+    background: #000;
+    color: #00ff00;
+    min-height: 100vh;
+    padding: 2rem;
+    overflow-x: hidden;
+    position: relative;
+}
+
+.crt-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+    pointer-events: none;
+    z-index: 1000;
+    animation: flicker 0.15s infinite;
+}
+
+.vignette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
+    pointer-events: none;
+    z-index: 999;
+}
+
+.scan-lines {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 998;
+}
+
+.scan-bar {
+    position: absolute;
+    width: 100%;
+    height: 20px;
+    background: linear-gradient(to bottom, transparent, rgba(0, 255, 0, 0.2), transparent);
+    animation: scan 8s linear infinite;
+}
+
+.static-noise {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAADElEQVQImWNgoBMAAABpAAFEI8ARAAAAAElFTkSuQmCC');
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 997;
+    animation: static 0.1s infinite;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+.machine-header {
+    height: 350px;
+    border: 2px solid #444;
+    margin-bottom: 2rem;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+}
+
+.pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.warning-banner {
+    text-align: center;
+    color: #ff0000;
+    font-size: 0.75rem;
+    letter-spacing: 0.3rem;
+    margin-bottom: 1.5rem;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+.title {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.25rem;
+    text-shadow: 0 0 20px #00ff00;
+}
+
+.subtitle {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #666;
+    margin-bottom: 2rem;
+}
+
+.main-panel {
+    border: 2px solid #00aa00;
+    background: rgba(0, 0, 0, 0.9);
+    padding: 2rem;
+    box-shadow: 0 0 30px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.input-section {
+    margin-bottom: 1.5rem;
+}
+
+.input-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #00ff00;
+}
+
+.url-input {
+    width: 100%;
+    background: #000;
+    border: 2px solid #00aa00;
+    color: #00ff00;
+    padding: 0.75rem 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.2);
+}
+
+.url-input:focus {
+    outline: none;
+    border-color: #00ff00;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 1
